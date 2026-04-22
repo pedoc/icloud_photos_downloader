@@ -1,0 +1,87 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+
+jobs:
+  get_version:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Retrieve version
+      id: get_version
+      run: |
+        echo icloudpd_version=$(cat pyproject.toml | grep version= | cut -d'"' -f 2) >> $GITHUB_OUTPUT
+
+    - name: Log version
+      run: |
+        echo "icloudpd_version=${{steps.get_version.outputs.icloudpd_version}}"
+
+    outputs:
+      icloudpd_version: ${{steps.get_version.outputs.icloudpd_version}}
+
+  patch_version:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Patch Version
+      run: |
+        scripts/patch_version
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: icloudpd-version-info
+        if-no-files-found: error
+        path: |
+          src/foundation/__init__.py
+
+  build_windows:
+    runs-on: windows-2022
+    needs: [get_version, patch_version]
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download version info
+      uses: actions/download-artifact@v4
+      with:
+        name: icloudpd-version-info
+        path: |
+          src/foundation
+
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install Dev dependencies
+      run: >
+        python3 -m pip install --disable-pip-version-check -r requirements-pip.txt &&
+        pip3 install --disable-pip-version-check -e . --group dev
+
+    - name: Build Release Executables
+      run: |
+        scripts/build_bin1 icloudpd && \
+        scripts/build_bin1 icloud && \
+        mv dist/icloud dist/icloud-${{needs.get_version.outputs.icloudpd_version}}-windows-amd64 && \
+        mv dist/icloudpd dist/icloudpd-${{needs.get_version.outputs.icloudpd_version}}-windows-amd64
+
+    - name: Build Python Binary Wheel
+      run: |
+        scripts/build_binary_dist_windows ${{needs.get_version.outputs.icloudpd_version}}
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: icloudpd-bin-windows-amd64
+        if-no-files-found: error
+        path: |
+          dist/icloud*
