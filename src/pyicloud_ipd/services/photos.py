@@ -297,7 +297,12 @@ class PhotoLibrary:
         indexing_state = response["records"][0]["fields"]["state"]["value"]
         if indexing_state != "FINISHED":
             raise PyiCloudServiceNotActivatedException(
-                ("Apple iCloud Photo Library has not finished indexing yet"), None
+                f"Apple iCloud Photo Library has not finished indexing yet "
+                f"(state={indexing_state!r}, library_type={self.library_type!r}, "
+                f"zone={self.zone_id.get('zoneName')!r}). "
+                "Wait for Apple to finish indexing, then retry. "
+                "Open Photos on the iCloud website and confirm your library is available.",
+                None,
             )
 
     @property
@@ -435,29 +440,21 @@ class PhotosService(PhotoLibrary):
         return self._shared_libraries
 
     def _fetch_libraries(self, library_type: str) -> Dict[str, PhotoLibrary]:
-        try:
-            libraries = {}
-            service_endpoint = self.get_service_endpoint(library_type)
-            url = f"{service_endpoint}/zones/list"
-            request = self.session.post(url, data="{}", headers={"Content-type": "text/plain"})
-            response = request.json()
-            for zone in response["zones"]:
-                if not zone.get("deleted"):
-                    zone_name = zone["zoneID"]["zoneName"]
-                    service_endpoint = self.get_service_endpoint(library_type)
-                    libraries[zone_name] = PhotoLibrary(
-                        service_endpoint,
-                        self.params,
-                        self.session,
-                        zone_id=zone["zoneID"],
-                        library_type=library_type,
-                    )
-                    # obj_type='CPLAssetByAssetDateWithoutHiddenOrDeleted',
-                    # list_type="CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted",
-                    # direction="ASCENDING", query_filter=None,
-                    # zone_id=zone['zoneID'])
-        except Exception as e:
-            logger.error(f"library exception: {str(e)}")
+        libraries = {}
+        service_endpoint = self.get_service_endpoint(library_type)
+        url = f"{service_endpoint}/zones/list"
+        request = self.session.post(url, data="{}", headers={"Content-type": "text/plain"})
+        response = request.json()
+        for zone in response["zones"]:
+            if not zone.get("deleted"):
+                zone_name = zone["zoneID"]["zoneName"]
+                libraries[zone_name] = PhotoLibrary(
+                    service_endpoint,
+                    self.params,
+                    self.session,
+                    zone_id=zone["zoneID"],
+                    library_type=library_type,
+                )
         return libraries
 
     def get_service_endpoint(self, library_type: str) -> str:
