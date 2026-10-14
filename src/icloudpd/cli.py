@@ -515,6 +515,7 @@ def parse(args: Sequence[str]) -> Tuple[GlobalConfig, Sequence[UserConfig]]:
         for user_args in splitted_args[1:]
     ]
 
+    validation_configs: Sequence[argparse.Namespace | UserConfig] = [default_ns, *user_nses]
     if any(
         config.skip_indexing_check
         and (
@@ -522,7 +523,7 @@ def parse(args: Sequence[str]) -> Tuple[GlobalConfig, Sequence[UserConfig]]:
             or config.delete_after_download
             or config.keep_icloud_recent_days is not None
         )
-        for config in [default_ns, *user_nses]
+        for config in validation_configs
     ):
         raise argparse.ArgumentError(
             None,
