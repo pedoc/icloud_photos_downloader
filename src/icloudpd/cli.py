@@ -100,6 +100,12 @@ def add_options_for_user(parser: argparse.ArgumentParser) -> argparse.ArgumentPa
         default="PrimarySync",
     )
     cloned.add_argument(
+        "--skip-indexing-check",
+        help="Skip only the photo library indexing check. Indexing may be incomplete, photos may be omitted, and success does not guarantee a complete backup. Cannot be combined with deletion options.",
+        action="store_true",
+        default=False,
+    )
+    cloned.add_argument(
         "--list-libraries",
         help="List the available libraries",
         action="store_true",
@@ -472,6 +478,7 @@ def map_to_config(user_ns: argparse.Namespace) -> UserConfig:
         skip_created_before=user_ns.skip_created_before,
         skip_created_after=user_ns.skip_created_after,
         skip_photos=user_ns.skip_photos,
+        skip_indexing_check=user_ns.skip_indexing_check,
     )
 
 
@@ -507,6 +514,21 @@ def parse(args: Sequence[str]) -> Tuple[GlobalConfig, Sequence[UserConfig]]:
         map_to_config(user_parser.parse_args(user_args, copy.deepcopy(default_ns)))
         for user_args in splitted_args[1:]
     ]
+
+    if any(
+        config.skip_indexing_check
+        and (
+            config.auto_delete
+            or config.delete_after_download
+            or config.keep_icloud_recent_days is not None
+        )
+        for config in [default_ns, *user_nses]
+    ):
+        raise argparse.ArgumentError(
+            None,
+            "--skip-indexing-check cannot be combined with --auto-delete, "
+            "--delete-after-download, or --keep-icloud-recent-days (including 0).",
+        )
 
     return (
         GlobalConfig(

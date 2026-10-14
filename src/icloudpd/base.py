@@ -236,6 +236,21 @@ def create_logger(config: GlobalConfig) -> logging.Logger:
 def run_with_configs(global_config: GlobalConfig, user_configs: Sequence[UserConfig]) -> int:
     """Run the application with the new configuration system"""
 
+    if any(
+        config.skip_indexing_check
+        and (
+            config.auto_delete
+            or config.delete_after_download
+            or config.keep_icloud_recent_days is not None
+        )
+        for config in user_configs
+    ):
+        print(
+            "--skip-indexing-check cannot be combined with --auto-delete, "
+            "--delete-after-download, or --keep-icloud-recent-days (including 0)."
+        )
+        return 2
+
     # Create shared logger
     logger = create_logger(global_config)
 
@@ -913,6 +928,7 @@ def core_single_run(
                 partial(append_response, captured_responses),
                 user_config.cookie_directory,
                 os.environ.get("CLIENT_ID"),
+                skip_indexing_check=user_config.skip_indexing_check,
             )
 
             # dump captured responses for debugging

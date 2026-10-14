@@ -69,6 +69,7 @@ def authenticator(
     response_observer: Callable[[Mapping[str, Any]], None] | None = None,
     cookie_directory: str | None = None,
     client_id: str | None = None,
+    skip_indexing_check: bool = False,
 ) -> PyiCloudService:
     """Authenticate with iCloud username and password"""
     logger.debug("Authenticating...")
@@ -90,6 +91,7 @@ def authenticator(
         response_observer,
         cookie_directory=cookie_directory,
         client_id=client_id,
+        skip_indexing_check=skip_indexing_check,
     )
 
     if not icloud:

@@ -277,12 +277,21 @@ class PhotoLibrary:
         session: Session,
         zone_id: Dict[str, Any],
         library_type: str,
+        skip_indexing_check: bool = False,
     ):
         self.service_endpoint = service_endpoint
         self.params = params
         self.session = session
         self.zone_id = zone_id
         self.library_type = library_type
+        self.skip_indexing_check = skip_indexing_check
+
+        if skip_indexing_check:
+            logger.warning(
+                "Skipping photo library indexing check: indexing may be incomplete, "
+                "photos may be omitted, and success does not guarantee a complete backup."
+            )
+            return
 
         url = f"{self.service_endpoint}/records/query?{urlencode(self.params)}"
         json_data = json.dumps(
@@ -402,7 +411,13 @@ class PhotosService(PhotoLibrary):
     This also acts as a way to access the user's primary library.
     """
 
-    def __init__(self, service_root: str, session: PyiCloudSession, params: Dict[str, Any]):
+    def __init__(
+        self,
+        service_root: str,
+        session: PyiCloudSession,
+        params: Dict[str, Any],
+        skip_indexing_check: bool = False,
+    ):
         self.session = session
         self.params = dict(params)
         self._service_root = service_root
@@ -415,7 +430,9 @@ class PhotosService(PhotoLibrary):
         # Initialize as primary library
         service_endpoint = self.get_service_endpoint("private")
         zone_id = {"zoneName": "PrimarySync"}
-        super().__init__(service_endpoint, self.params, self.session, zone_id, "private")
+        super().__init__(
+            service_endpoint, self.params, self.session, zone_id, "private", skip_indexing_check
+        )
 
         # TODO: Does syncToken ever change?
         # self.params.update({
@@ -454,6 +471,7 @@ class PhotosService(PhotoLibrary):
                     self.session,
                     zone_id=zone["zoneID"],
                     library_type=library_type,
+                    skip_indexing_check=self.skip_indexing_check,
                 )
         return libraries
 
